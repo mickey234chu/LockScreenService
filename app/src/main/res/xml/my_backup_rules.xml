@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- my_backup_rules.xml -->
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="false">
+        <include domain="root" path="SN.xml" />
+        <include domain="sharedpref" path="SN.xml" />
+    </cloud-backup>
+</data-extraction-rules>
+
