@@ -1,6 +1,7 @@
 package com.example.bootservice;
 
 
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -18,6 +19,7 @@ import android.graphics.PixelFormat;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.provider.Settings;
@@ -67,6 +69,8 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.locks.Lock;
@@ -77,15 +81,18 @@ public class ServerService extends Service {
     IBinder mBinder;      // interface for clients that bind
     boolean mAllowRebind; // indicates whether onRebind should be used
     boolean socketest = false;
+    boolean functiontest = true;
     static boolean working= false;
     private boolean Block_Flag = false;
     private boolean Lock_Flag = false;
     private boolean Lost_Flag = false;
     private MyWebSocketClient websocket;
     private Thread Thread1 = null;
+    private static Thread Thread2 = null;
 
     private String pubIP;
 
+    public static String owner;
     Timer timer = new Timer();
     Timer locktimer = new Timer();
 
@@ -119,6 +126,7 @@ public class ServerService extends Service {
     private Calendar Gettime;
     private final SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
     private ComponentName compName;
+    private AlarmReceiver mAlarmBroadcastReceiver;
 
     private HomeKeyBroadcastReceiver mHomeKeyBroadcastReceiver;
     //SN
@@ -169,6 +177,8 @@ public class ServerService extends Service {
         {
             url = new URL("http://imoeedge20220914134800.azurewebsites.net/api/UserTime");
             Log.e("apiaddress","http://imoeedge20220914134800.azurewebsites.net/api/UserTime");
+
+
         }
         else
         {
@@ -177,11 +187,16 @@ public class ServerService extends Service {
         }
 
         //尋找時間鎖
+        mAlarmBroadcastReceiver = new AlarmReceiver();
+        IntentFilter mAlarmIntentFilter = new IntentFilter();
+        mAlarmIntentFilter.addAction("activity_app");
+        registerReceiver(mAlarmBroadcastReceiver,mAlarmIntentFilter);
         StartLock = sharedPreferences.getInt("Starttime",-1);
         StopLock = sharedPreferences.getInt("Endtime",-1);
 
         //取納管單位，初始化訊息內容
-        LostMessage = sharedPreferences.getString("unitinfro","")+"\n所屬載具";
+        owner = sharedPreferences.getString("unitinfro","");
+        LostMessage = owner +"\n所屬載具";
         LockMessage = "";
         Log.e("unitinfro",sharedPreferences.getString("unitinfro","null"));
 
@@ -203,7 +218,9 @@ public class ServerService extends Service {
         //定時檢查是否進行鎖螢幕
         newlocktimer();
         locktimer.schedule(locktask,0,2*1000);
-
+        Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("Asia/Taipei")); //取得時間
+        cal.add(Calendar.MINUTE, 1);
+        add_alarm(ServerService.this,cal,"send_data",0);
         //開始連接socket
         Thread1 = new Thread(new Thread1());
     }
@@ -308,90 +325,7 @@ public class ServerService extends Service {
             owner = own;
         }
     }
-    //上傳資料之定時器
-    private void newtimer() {
-        //httppost
-        task = new TimerTask() {
-            @Override
-            public void run() {
 
-                try {
-                    connection = (HttpURLConnection) url.openConnection();
-                    connection.setRequestMethod("POST");
-                    connection.setDoInput(true);
-                    connection.setDoOutput(true);
-                    connection.setUseCaches(false);
-                    connection.setRequestProperty("Content-Type", "application/json");
-                    connection.connect();
-                    Gettime = Calendar.getInstance();
-                    DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-
-                    if(!pubIP.isEmpty())
-                    {
-                       pubIP= pubIP.replaceAll("\"","").replaceFirst("ip:","").replace("{","").replace("}","");
-                       Log.e("IP",pubIP);
-                    }
-                    else
-                    {
-                        return;
-                    }
-                    Data data = new Data(pubIP, dtf.format(LocalDateTime.now()), ID,LockMessage);
-
-                    JSONObject jsonObject = new JSONObject();
-                    try{
-
-                        jsonObject.put("publicip",data.publicip);
-                        jsonObject.put("uploadtime",data.uploadtime);
-                        jsonObject.put("serialnumber",data.serialnumber);
-                        jsonObject.put("owner",data.owner);
-                        Log.e("HTTP",jsonObject.toString());
-
-
-                    }
-                    catch(JSONException e) {
-                        e.printStackTrace();
-
-                    }
-
-                   OutputStream outputStream = connection.getOutputStream();
-                    BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
-                    writer.write(jsonObject.toString());
-                    writer.flush();
-                    writer.close();
-                    int responseCode = connection.getResponseCode();
-                    Log.e("API","send");
-                    if(responseCode == HttpURLConnection.HTTP_OK)
-                    {
-
-                        Log.e("HTTP","Ok");
-                        handler.post(() -> Toast.makeText(getApplicationContext(),
-                                "try post!",Toast.LENGTH_LONG).show());
-
-
-                    }
-                    else
-                    {
-
-                        Log.e("HTTP","not");
-                        handler.post(() -> Toast.makeText(getApplicationContext(),
-                                "fail!",Toast.LENGTH_LONG).show());
-                    }
-                    connection.disconnect();
-
-                }
-                catch (Exception e)
-                {
-                    e.printStackTrace();
-                    Log.e("APIFAIL","API :" + url +" conn fail");
-                }
-
-
-            }
-
-        };
-        timer = new Timer();
-    }
     //檢查鎖定之定時器
     private void newlocktimer()
     {
@@ -400,7 +334,7 @@ public class ServerService extends Service {
             @Override
             public void run() {
 
-                timelock = timerlockhandle(StartLock, StopLock);
+                //timelock = timerlockhandle(StartLock, StopLock);
 
                 if(timelock)
                 {
@@ -624,6 +558,7 @@ public class ServerService extends Service {
 
     }
     //取本地IP
+    public static String PIP;
     public void httpCall(String url) {
         //RequestQueue initialized
         //publicip
@@ -636,6 +571,7 @@ public class ServerService extends Service {
             if(!pubIP.isEmpty())
             {
                 pubIP= pubIP.replaceAll("\"","").replaceFirst("ip:","").replace("{","").replace("}","");
+                PIP = pubIP;
                 Log.e("IP",pubIP);
             }
             SharedPreferences.Editor editor = sharedPreferences.edit();
@@ -657,6 +593,72 @@ public class ServerService extends Service {
                         | WindowInsets.Type.navigationBars());
             }
         }
+    }
+    public static class AlarmReceiver extends BroadcastReceiver {
+        HttpURLConnection Alarmconnection;
+        URL SendUrl;
+        {
+            try {
+                SendUrl = new URL("http://imoeedge20220914134800.azurewebsites.net/api/UserTime");
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
+        }
+        Calendar Gettime;
+        String SendIP = PIP;
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Bundle bData = intent.getExtras();
+            if(bData.get("title").equals("timelock"))
+            {
+                //主要執行的程式
+                Log.i("add_Alarm_check","receive sucess, time = "+bData.get("time"));
+            }
+            if(bData.get("title").equals("send_data"))
+            {
+                //主要執行的程式
+                new Thread(new Thread2()).start();
+                Log.i("add_Alarm_check","data send");
+                Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("Asia/Taipei")); //取得時間
+                cal.add(Calendar.MINUTE, 1);
+                add_alarm(context,cal,"send_data",0);
+                Log.i("add_Alarm_check","resenddata");
+            }
+            Log.i("add_Alarm_check","working");
+        }
+    }
+    /***    加入(與系統註冊)鬧鐘    ***/
+    public static void add_alarm(Context context, Calendar cal,String title, int reqCode) {
+        Log.d("add_Alarm_check", title + " alarm add time: " + String.valueOf(cal.get(Calendar.MONTH)) + "." + String.valueOf(cal.get(Calendar.DATE)) + " " + String.valueOf(cal.get(Calendar.HOUR_OF_DAY)) + ":" + cal.get(Calendar.MINUTE) + ":" + cal.get(Calendar.SECOND));
+
+        Intent intent = new Intent(context, AlarmReceiver.class);
+        // 以日期字串組出不同的 category 以添加多個鬧鐘
+        intent.addCategory("ID." + String.valueOf(cal.get(Calendar.MONTH)) + "." + String.valueOf(cal.get(Calendar.DATE)) + "-" + String.valueOf((cal.get(Calendar.HOUR_OF_DAY) )) + "." + String.valueOf(cal.get(Calendar.MINUTE)) + "." + String.valueOf(cal.get(Calendar.SECOND)));
+        String AlarmTimeTag = "Alarmtime " + String.valueOf(cal.get(Calendar.HOUR_OF_DAY)) + ":" + String.valueOf(cal.get(Calendar.MINUTE)) + ":" + String.valueOf(cal.get(Calendar.SECOND));
+
+        intent.putExtra("title", title);
+        intent.putExtra("time", AlarmTimeTag);
+
+        PendingIntent pi = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT| PendingIntent.FLAG_IMMUTABLE);
+
+        AlarmManager am = (AlarmManager) context.getSystemService(ALARM_SERVICE);
+        am.set(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), pi);       //註冊鬧鐘
+    }
+    private static void cancel_alarm(Context context, Calendar cal,String title,int reqCode) {
+        Log.d("add_Alarm_check", "alarm cancel time: " + String.valueOf(cal.get(Calendar.MONTH)) + "." + String.valueOf(cal.get(Calendar.DATE)) + " " + String.valueOf(cal.get(Calendar.HOUR_OF_DAY)) + ":" + cal.get(Calendar.MINUTE) + ":" + cal.get(Calendar.SECOND));
+
+        Intent intent = new Intent(context, AlarmReceiver.class);
+        // 以日期字串組出不同的 category 以添加多個鬧鐘
+        intent.addCategory("ID." + String.valueOf(cal.get(Calendar.MONTH)) + "." + String.valueOf(cal.get(Calendar.DATE)) + "-" + String.valueOf((cal.get(Calendar.HOUR_OF_DAY) )) + "." + String.valueOf(cal.get(Calendar.MINUTE)) + "." + String.valueOf(cal.get(Calendar.SECOND)));
+        String AlarmTimeTag = "Alarmtime " + String.valueOf(cal.get(Calendar.HOUR_OF_DAY)) + ":" + String.valueOf(cal.get(Calendar.MINUTE)) + ":" + String.valueOf(cal.get(Calendar.SECOND));
+
+        intent.putExtra("title", title);
+        intent.putExtra("time", AlarmTimeTag);
+
+        PendingIntent pi = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT| PendingIntent.FLAG_IMMUTABLE);
+
+        AlarmManager am = (AlarmManager) context.getSystemService(ALARM_SERVICE);
+        am.cancel(pi);    //取消鬧鐘，只差在這裡
     }
 
     //websocket
@@ -907,16 +909,95 @@ public class ServerService extends Service {
     class Thread1 implements Runnable {
         public void run() {
             //初始化發送資料的定時器
-            timer.cancel();
-            newtimer();
-            timer.schedule(task,3*1000,60*1000);
+            if(functiontest) {
 
-            //初始化 並開啟websocket功能
-            initwebSocket();
 
-            //打開心跳包
-            mHandler.postDelayed(heartBeatRunnable,HEART_BEAT_RATE);
+            }
+            else
+            {
+                //初始化 並開啟websocket功能
+                initwebSocket();
+                //打開心跳包
+                mHandler.postDelayed(heartBeatRunnable, HEART_BEAT_RATE);
+            }
+        }
+    }
+    static class Thread2 implements  Runnable{
+        @Override
+        public void run() {
+            HttpURLConnection Alarmconnection;
+            URL SendUrl = null;
+            try {
+                SendUrl = new URL("http://imoeedge20220914134800.azurewebsites.net/api/UserTime");
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
+            Calendar Gettime;
+            String SendIP = PIP;
+            try {
 
+                Alarmconnection = (HttpURLConnection) SendUrl.openConnection();
+                Alarmconnection.setRequestMethod("POST");
+                Alarmconnection.setDoInput(true);
+                Alarmconnection.setDoOutput(true);
+                Alarmconnection.setUseCaches(false);
+                Alarmconnection.setRequestProperty("Content-Type", "application/json");
+                Alarmconnection.connect();
+                Gettime = Calendar.getInstance();
+                DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+
+                if(!SendIP.isEmpty())
+                {
+                    SendIP= SendIP.replaceAll("\"","").replaceFirst("ip:","").replace("{","").replace("}","");
+                    Log.e("IP",SendIP);
+                }
+                else
+                {
+                    return;
+                }
+                Data data = new Data(SendIP, dtf.format(LocalDateTime.now()), ID,owner);
+
+                JSONObject jsonObject = new JSONObject();
+                try{
+
+                    jsonObject.put("publicip",data.publicip);
+                    jsonObject.put("uploadtime",data.uploadtime);
+                    jsonObject.put("serialnumber",data.serialnumber);
+                    jsonObject.put("owner",data.owner);
+                    Log.e("HTTP",jsonObject.toString());
+
+
+                }
+                catch(JSONException e) {
+                    e.printStackTrace();
+
+                }
+
+                OutputStream outputStream = Alarmconnection.getOutputStream();
+                BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
+                writer.write(jsonObject.toString());
+                writer.flush();
+                writer.close();
+                int responseCode = Alarmconnection.getResponseCode();
+                Log.e("API","send");
+                if(responseCode == HttpURLConnection.HTTP_OK)
+                {
+                    Log.e("HTTP","Ok");
+
+                }
+                else
+                {
+                    Log.e("HTTP","not");
+                }
+                Alarmconnection.disconnect();
+
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+                Log.e("APIFAIL","API :" + SendUrl +" conn fail");
+            }
         }
     }
     //websocket 關閉連接用
@@ -1034,6 +1115,7 @@ public class ServerService extends Service {
         //關閉websocket
         closeReceiveConnect();
         Log.e("TestService","I am died");
+        unregisterReceiver(mAlarmBroadcastReceiver);
         //重啟Service
         startForegroundService(new Intent(this, ServerService.class));
     }
