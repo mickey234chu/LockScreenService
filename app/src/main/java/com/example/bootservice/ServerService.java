@@ -81,7 +81,7 @@ public class ServerService extends Service {
     IBinder mBinder;      // interface for clients that bind
     boolean mAllowRebind; // indicates whether onRebind should be used
     boolean socketest = false;
-    boolean functiontest = true;
+    boolean functiontest = false;
     static boolean working= false;
     private boolean Block_Flag = false;
     private boolean Lock_Flag = false;
@@ -215,9 +215,7 @@ public class ServerService extends Service {
         devicePolicyManager = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
         compName = new ComponentName(this, MyAdmin.class);
 
-        //定時檢查是否進行鎖螢幕
-        newlocktimer();
-        locktimer.schedule(locktask,0,2*1000);
+        //建立定時sendata
         Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("Asia/Taipei")); //取得時間
         cal.add(Calendar.MINUTE, 1);
         add_alarm(ServerService.this,cal,"send_data",0);
@@ -272,7 +270,7 @@ public class ServerService extends Service {
     private boolean timerlockhandle(int start,int end)
     {
         Gettime = Calendar.getInstance();
-        //取時,分
+        //取現在的時,分
         int hour = Gettime.get(Calendar.HOUR_OF_DAY);
         int minute = Gettime.get(Calendar.MINUTE);
         //統一換算分鐘，用來比大小
@@ -326,83 +324,8 @@ public class ServerService extends Service {
         }
     }
 
-    //檢查鎖定之定時器
-    private void newlocktimer()
-    {
-        //檢查鎖定
-        locktask = new TimerTask() {
-            @Override
-            public void run() {
-
-                //timelock = timerlockhandle(StartLock, StopLock);
-
-                if(timelock)
-                {
-                    if(!Block_Flag)//檢查有沒有已開啟的鎖定,false=未打開
-                    {
-                        if (Settings.canDrawOverlays(ServerService.this)) {
-                            handler.post(() -> {
-                                setLockManager();
-                                setwindow(LostMessage);
-
-                                IntentFilter mIntentFilter = new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
-                                mHomeKeyBroadcastReceiver = new HomeKeyBroadcastReceiver();
-                                registerReceiver(mHomeKeyBroadcastReceiver, mIntentFilter);
-                                Block_Flag=true;
-
-                            });
-
-                            Log.e("lock","lock");
-
-                        } else {
-                            Log.e("ERROR", "didn't get the permission");
-                        }
-                        Block_Flag = true;
-                    }
-                }
-                else if(Lock_Flag)
-                {
-                    if(!Block_Flag)//檢查有沒有已開啟的鎖定,false=未打開
-                    {
-                        if (Settings.canDrawOverlays(ServerService.this)) {
-                            handler.post(() -> {
-                                setLockManager();
-                                setwindow(LockMessage);
-
-                                IntentFilter mIntentFilter = new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
-                                mHomeKeyBroadcastReceiver = new HomeKeyBroadcastReceiver();
-                                registerReceiver(mHomeKeyBroadcastReceiver, mIntentFilter);
-                                Block_Flag=true;
-
-                            });
-
-                            Log.e("lock","lock");
-
-                        } else {
-                            Log.e("ERROR", "didn't get the permission");
-                        }
-                        Block_Flag = true;
-                    }
-                }
-                else
-                {
-                    if(Block_Flag)//檢查有沒有已開啟的鎖定
-                    {
-                        windowManager.removeView(floatView);
-                        lockManager.removeView(mMoniterView);
-                        unregisterReceiver(mHomeKeyBroadcastReceiver);
-                        Block_Flag = false;
-                        Log.v("TestService","unlock");
 
 
-                    }
-                }
-
-
-            }
-        };
-        locktimer = new Timer();
-    }
     //建立前台Server用通知
     private Notification getNotification()
     {
@@ -612,6 +535,7 @@ public class ServerService extends Service {
             if(bData.get("title").equals("timelock"))
             {
                 //主要執行的程式
+
                 Log.i("add_Alarm_check","receive sucess, time = "+bData.get("time"));
             }
             if(bData.get("title").equals("send_data"))
@@ -779,7 +703,7 @@ public class ServerService extends Service {
                         editor.putInt("Starttime",-1).putInt("Endtime",-1).commit();
                         StartLock = -1;
                         StopLock = -1;
-
+                        timelock = false;
                         if(Block_Flag)//檢查有沒有已開啟的鎖定
                         {
                             windowManager.removeView(floatView);
@@ -876,6 +800,76 @@ public class ServerService extends Service {
     //心跳包
     private  static  final long HEART_BEAT_RATE = 120*1000;
     private final Handler mHandler = new Handler();
+    //定時檢查鎖定
+    private final Runnable LockFlagRunnable = new Runnable() {
+        @Override
+        public void run() {
+            timelock = timerlockhandle(StartLock,StopLock);
+            if(timelock)
+            {
+                if(!Block_Flag)//檢查有沒有已開啟的鎖定,false=未打開
+                {
+                    if (Settings.canDrawOverlays(ServerService.this)) {
+                        handler.post(() -> {
+                            setLockManager();
+                            setwindow(LostMessage);
+
+                            IntentFilter mIntentFilter = new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
+                            mHomeKeyBroadcastReceiver = new HomeKeyBroadcastReceiver();
+                            registerReceiver(mHomeKeyBroadcastReceiver, mIntentFilter);
+                            Block_Flag=true;
+
+                        });
+
+                        Log.e("lock","lock");
+
+                    } else {
+                        Log.e("ERROR", "didn't get the permission");
+                    }
+                    Block_Flag = true;
+                }
+            }
+            else if(Lock_Flag)
+            {
+                if(!Block_Flag)//檢查有沒有已開啟的鎖定,false=未打開
+                {
+                    if (Settings.canDrawOverlays(ServerService.this)) {
+                        handler.post(() -> {
+                            setLockManager();
+                            setwindow(LockMessage);
+
+                            IntentFilter mIntentFilter = new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
+                            mHomeKeyBroadcastReceiver = new HomeKeyBroadcastReceiver();
+                            registerReceiver(mHomeKeyBroadcastReceiver, mIntentFilter);
+                            Block_Flag=true;
+
+                        });
+
+                        Log.e("lock","lock");
+
+                    } else {
+                        Log.e("ERROR", "didn't get the permission");
+                    }
+                    Block_Flag = true;
+                }
+            }
+            else
+            {
+                if(Block_Flag)//檢查有沒有已開啟的鎖定
+                {
+                    windowManager.removeView(floatView);
+                    lockManager.removeView(mMoniterView);
+                    unregisterReceiver(mHomeKeyBroadcastReceiver);
+                    Block_Flag = false;
+                    Log.v("TestService","unlock");
+
+
+                }
+            }
+            mHandler.postDelayed(this,2*1000);
+        }
+    };
+    //定時心跳
     private final Runnable heartBeatRunnable = new Runnable() {
         @Override
         public void run() {
@@ -919,9 +913,12 @@ public class ServerService extends Service {
                 initwebSocket();
                 //打開心跳包
                 mHandler.postDelayed(heartBeatRunnable, HEART_BEAT_RATE);
+                //進行定時lockflag檢查
+                mHandler.postDelayed(LockFlagRunnable,2*1000);
             }
         }
     }
+    //Call api 上傳載具資料
     static class Thread2 implements  Runnable{
         @Override
         public void run() {
