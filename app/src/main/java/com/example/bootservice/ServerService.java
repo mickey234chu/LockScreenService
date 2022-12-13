@@ -16,8 +16,6 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Insets;
 import android.graphics.PixelFormat;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -57,13 +55,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
-import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
@@ -73,15 +67,16 @@ import java.util.GregorianCalendar;
 import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.locks.Lock;
 
-public class ServerService extends Service {
+public class ServerService<Myboolean> extends Service {
 
 
     IBinder mBinder;      // interface for clients that bind
     boolean mAllowRebind; // indicates whether onRebind should be used
     boolean socketest = false;
     boolean functiontest = false;
+    boolean issocketchange = false;
+    boolean changesocket = false;
     static boolean working= false;
     private boolean Block_Flag = false;
     private boolean Lock_Flag = false;
@@ -141,9 +136,19 @@ public class ServerService extends Service {
     //本地 ip
     URL ipurl = new URL("https://api.ipify.org?format=json");
     //websocket
-    URI uri;
+    String websocketLink;
+    //URI uri;
     public ServerService() throws MalformedURLException {
     }
+
+
+
+
+
+
+
+
+
 
 
     @Override
@@ -169,8 +174,21 @@ public class ServerService extends Service {
         sharedPreferences = getSharedPreferences("SN", 0);
         ID = sharedPreferences.getString("id","");
 
-        //取websocket
-
+        //取websocket link
+        if(socketest)
+        {
+            //使用測試用websocket
+            websocketLink = "ws://imoeedge20220914134800.azurewebsites.net/api/WebSoket?nickName="+ID;
+            //uri = URI.create("ws://imoeedge20220914134800.azurewebsites.net/api/WebSoket?nickName="+ID);
+            Log.e("test link",websocketLink);
+        }
+        else
+        {
+            //使用正常開放給本載具的websocket
+            websocketLink = sharedPreferences.getString("socketaddress","")+ID;
+            //uri = URI.create(websocketLink+ID);
+            Log.e("not test link ",websocketLink);
+        }
         apiaddress = sharedPreferences.getString("apiaddress","");
         //設定發送資料的API之連接
         if(socketest)
@@ -219,6 +237,8 @@ public class ServerService extends Service {
         Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("Asia/Taipei")); //取得時間
         cal.add(Calendar.MINUTE, 1);
         add_alarm(ServerService.this,cal,"send_data",0);
+
+
         //開始連接socket
         Thread1 = new Thread(new Thread1());
     }
@@ -591,7 +611,7 @@ public class ServerService extends Service {
 
         public MyWebSocketClient(URI serverUri) {
             super(serverUri,new Draft_6455());
-            Log.e("websocket","oncreate");
+            Log.e("websocket","oncreate,link = "+ serverUri.toString());
         }
 
         @Override
@@ -715,6 +735,16 @@ public class ServerService extends Service {
                         }
                         websocket.send(ID+" timereset!");
                     }
+                    else if (message.contains(ID+"_switch:"))//轉移新的websocket
+                    {
+                        websocketLink = message.replaceFirst(ID+"_switch","").replaceFirst(":","")+ID;
+                        //更換連接
+                        Log.e("websocket link switch to:",websocketLink);
+
+                        //告知需要轉換socket
+                        changesocket = true;
+
+                    }
                     else
                     {
                         String text = message.replaceFirst(ID,"");
@@ -736,8 +766,6 @@ public class ServerService extends Service {
             } else {
                 Log.e("MessageS","nothing");
 
-                //websocket.close();
-                //initwebSocket();
             }
         }
 
@@ -745,11 +773,17 @@ public class ServerService extends Service {
         public void onClose(int code, String reason, boolean remote) {
             Log.e("websocketclose",reason+"|"+code);
 
-            handler.post(() -> {
-                Toast.makeText(getApplicationContext(),
-                        "websocket conn fail",Toast.LENGTH_LONG).show();
+            //非正常關閉
+            if(code != 1 || code != 1000)
+            {
+                handler.post(() -> {
+                    Toast.makeText(getApplicationContext(),
+                            "websocket conn fail",Toast.LENGTH_LONG).show();
 
-            });
+                });
+            }
+
+
             closeReceiveConnect();
         }
 
@@ -765,28 +799,20 @@ public class ServerService extends Service {
     public void initwebSocket()
     {
 
-        if(socketest)
-        {
-            //使用測試用websocket
-            uri = URI.create("ws://imoeedge20220914134800.azurewebsites.net/api/WebSoket?nickName="+ID);
-            Log.e("test",uri.toString());
-        }
-        else
-        {
-            //使用正常開放給本載具的websocket
-            uri = URI.create(sharedPreferences.getString("socketaddress","")+ID);
-        }
-
-        Log.e("socketaddress",sharedPreferences.getString("socketaddress","null"));
         if(null != websocket)
         {
             websocket = null;
         }
+        //使用已取得的uri建立連接
+        URI uri;
+        uri = URI.create(websocketLink);
+        Log.e("initwebsocket link:", uri.toString());
         websocket = new MyWebSocketClient(uri);
         try
         {
 
             websocket.connectBlocking();
+            changesocket = false;
 
         }
         catch (InterruptedException e)
@@ -798,7 +824,7 @@ public class ServerService extends Service {
 
     }
     //心跳包
-    private  static  final long HEART_BEAT_RATE = 120*1000;
+    private  static  final long HEART_BEAT_RATE = 2*1000;
     private final Handler mHandler = new Handler();
     //定時檢查鎖定
     private final Runnable LockFlagRunnable = new Runnable() {
@@ -866,6 +892,10 @@ public class ServerService extends Service {
 
                 }
             }
+            if(changesocket)
+            {
+                closeReceiveConnect();
+            }
             mHandler.postDelayed(this,2*1000);
         }
     };
@@ -903,19 +933,16 @@ public class ServerService extends Service {
     class Thread1 implements Runnable {
         public void run() {
             //初始化發送資料的定時器
-            if(functiontest) {
-
-
-            }
-            else
-            {
+            if(!functiontest) {
                 //初始化 並開啟websocket功能
                 initwebSocket();
                 //打開心跳包
                 mHandler.postDelayed(heartBeatRunnable, HEART_BEAT_RATE);
                 //進行定時lockflag檢查
                 mHandler.postDelayed(LockFlagRunnable,2*1000);
+
             }
+
         }
     }
     //Call api 上傳載具資料
@@ -1003,7 +1030,7 @@ public class ServerService extends Service {
         try{
             if(null != websocket)
             {
-                websocket.close(1);
+                websocket.close(1000);
             }
         }
         catch (Exception e)
@@ -1013,7 +1040,11 @@ public class ServerService extends Service {
         finally {
             websocket = null;
         }
+
     }
+    //收到switch指令時用
+
+
     //重新連線用
     private  void reconnectWs(){
         mHandler.removeCallbacks(heartBeatRunnable);
