@@ -35,9 +35,9 @@ import java.util.Calendar;
 public class FirstActivity extends AppCompatActivity {
 
     TextView textView;
-    EditText et;
+    EditText et,et2;
     Button btnSend;
-    String SN;
+    String SN,domain;
     boolean Hrecord = false;
     boolean webtest = false;
     HttpURLConnection connection;
@@ -59,6 +59,7 @@ public class FirstActivity extends AppCompatActivity {
 
         textView = findViewById(R.id.textView);
         et = findViewById(R.id.et);
+        et2 = findViewById(R.id.et2);
         btnSend = findViewById(R.id.btnSend);
 
 
@@ -79,12 +80,28 @@ public class FirstActivity extends AppCompatActivity {
                 }
             }
         });
+        et2.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                if(hasFocus)
+                {
+                    et2.setHint("");
 
+                }
+                else
+                {
+                    if(et2.getText().length()<=0)
+                    {
+                        et2.setHint("分區資訊");
+                    }
+                }
+            }
+        });
         btnSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 SN = et.getText().toString().trim();
-
+                domain = et2.getText().toString().trim();
                 StringBuilder response = new StringBuilder();
 
                 try {
@@ -104,7 +121,8 @@ public class FirstActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
 
-                if (!SN.isEmpty()) {
+                //輸入欄位判斷
+                if (!SN.isEmpty() && !domain.isEmpty()) {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
@@ -112,11 +130,12 @@ public class FirstActivity extends AppCompatActivity {
                                 connection = (HttpURLConnection) url.openConnection();
                                 connection.setRequestMethod("GET");
                                 connection.setRequestProperty("SN", SN);
+                                connection.setRequestProperty("domain", domain);
                                 connection.connect();
 
-
+                                //回傳判斷
                                 int responseCode = connection.getResponseCode();
-                                //存有本機SN
+                                //database 存有本機SN
                                 if(responseCode == HttpURLConnection.HTTP_OK )
                                 {
                                     InputStream is = connection.getInputStream();
@@ -138,7 +157,7 @@ public class FirstActivity extends AppCompatActivity {
 
 
                                 }
-                                else//不存在本機SN記錄
+                                else//database不存在本機SN記錄
                                 {
 
 
@@ -154,10 +173,12 @@ public class FirstActivity extends AppCompatActivity {
                                 Log.e("HTTP",e.toString());
                                 Log.e("HTTP","conn fail");
                             }
+                            //API response result 處理
                             if(Hrecord) {
                                 DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                                 Intent intent = new Intent(FirstActivity.this, MainActivity.class);
                                 intent.putExtra("SN", SN);
+                                intent.putExtra("domain", domain);
                                 try {
                                     intent.putExtra("socketaddress", jsonObject.getString("socketaddress"));
                                     intent.putExtra("apiaddress", jsonObject.getString("apiaddress"));
@@ -177,7 +198,7 @@ public class FirstActivity extends AppCompatActivity {
                                     @Override
                                     public void run() {
                                         Toast.makeText(getApplicationContext(),
-                                                "登記失敗，請檢查網路連線並確定SN輸入是否正確",Toast.LENGTH_LONG).show();
+                                                "登記失敗，請檢查網路連線並確定所有輸入是否正確",Toast.LENGTH_LONG).show();
                                         Log.e("HTTP","fail text");
                                     }
                                 });
@@ -186,7 +207,7 @@ public class FirstActivity extends AppCompatActivity {
                                 {
                                     Intent intent = new Intent(FirstActivity.this, MainActivity.class);
                                     intent.putExtra("SN", SN);
-
+                                        // add testing data
                                         intent.putExtra("socketaddress", "ws://imoeedge20220914134800.azurewebsites.net/api/WebSoket?nickName=");
                                         intent.putExtra("apiaddress", "http://imoeedge20220914134800.azurewebsites.net/api/Usertime");
                                         intent.putExtra("unitinfro", "基隆市市立八堵國小");
@@ -209,7 +230,16 @@ public class FirstActivity extends AppCompatActivity {
                 }
                 else
                 {
-                    Log.e("HTTP","Empty SN");
+                    String errormessage = "缺失以下資訊:\n";
+                    if(SN.isEmpty())
+                    {
+                        errormessage += "SN碼\n";
+                    }
+                    if(domain.isEmpty())
+                    {
+                        errormessage += "分區資訊\n";
+                    }
+                    Log.e("HTTP",errormessage);
                 }
 
             }
