@@ -119,7 +119,7 @@ public class FirstActivity extends AppCompatActivity {
                 }
 
                 //輸入欄位判斷
-                if (!SN.isEmpty() && !domain.isEmpty()) {
+                if (!SN.isEmpty() && !domain.equals("請選擇分區資訊")) {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
@@ -220,7 +220,7 @@ public class FirstActivity extends AppCompatActivity {
                                         @Override
                                         public void run() {
                                             Toast.makeText(getApplicationContext(),
-                                                    "登記失敗，請檢查網路連線並確定所有輸入是否正確",Toast.LENGTH_LONG).show();
+                                                    "登記失敗，請檢查網路連線、確定輸入之SN碼無誤、以及選擇之所屬分區是否正確",Toast.LENGTH_LONG).show();
                                             Log.e("HTTP","fail text");
                                         }
                                     });
@@ -243,7 +243,7 @@ public class FirstActivity extends AppCompatActivity {
                     {
                         errormessage += "SN碼\n";
                     }
-                    if(domain.isEmpty())
+                    if(domain.equals("請選擇分區資訊"))
                     {
                         errormessage += "分區資訊\n";
                     }
