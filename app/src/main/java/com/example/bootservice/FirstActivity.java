@@ -10,8 +10,10 @@ import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -36,10 +38,11 @@ public class FirstActivity extends AppCompatActivity {
 
     TextView textView;
     EditText et,et2;
+    Spinner URL_Spinner;
     Button btnSend;
     String SN,domain;
     boolean Hrecord = false;
-    boolean webtest = false;
+    boolean webtest = true;
     HttpURLConnection connection;
     URL url;
     JSONObject jsonObject = null;
@@ -59,7 +62,17 @@ public class FirstActivity extends AppCompatActivity {
 
         textView = findViewById(R.id.textView);
         et = findViewById(R.id.et);
-        et2 = findViewById(R.id.et2);
+        URL_Spinner = findViewById(R.id.URL_Spinner);
+        ArrayAdapter<CharSequence> adapter =
+                ArrayAdapter.createFromResource(this,    //對應的Context
+                        R.array.URL_list,                             //資料選項內容
+                        R.layout.myspinner);  //預設Spinner未展開時的View(預設及選取後樣式)
+
+        adapter.setDropDownViewResource(R.layout.myspinner_background);
+        URL_Spinner.setAdapter(adapter);
+
+
+
         btnSend = findViewById(R.id.btnSend);
 
 
@@ -80,28 +93,12 @@ public class FirstActivity extends AppCompatActivity {
                 }
             }
         });
-        et2.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-            @Override
-            public void onFocusChange(View v, boolean hasFocus) {
-                if(hasFocus)
-                {
-                    et2.setHint("");
 
-                }
-                else
-                {
-                    if(et2.getText().length()<=0)
-                    {
-                        et2.setHint("分區資訊");
-                    }
-                }
-            }
-        });
         btnSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 SN = et.getText().toString().trim();
-                domain = et2.getText().toString().trim();
+                domain = String.valueOf(URL_Spinner.getSelectedItem());
                 StringBuilder response = new StringBuilder();
 
                 try {
@@ -194,14 +191,7 @@ public class FirstActivity extends AppCompatActivity {
                             else
                             {
 
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        Toast.makeText(getApplicationContext(),
-                                                "登記失敗，請檢查網路連線並確定所有輸入是否正確",Toast.LENGTH_LONG).show();
-                                        Log.e("HTTP","fail text");
-                                    }
-                                });
+
                                 // for testing
                                 if(webtest)
                                 {
@@ -212,10 +202,28 @@ public class FirstActivity extends AppCompatActivity {
                                         intent.putExtra("apiaddress", "http://imoeedge20220914134800.azurewebsites.net/api/Usertime");
                                         intent.putExtra("unitinfro", "基隆市市立八堵國小");
 
-
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            Toast.makeText(getApplicationContext(),
+                                                    "測試",Toast.LENGTH_LONG).show();
+                                            Log.e("HTTP","fail text");
+                                        }
+                                    });
                                     Log.e("SN", SN);
                                     setResult(RESULT_OK, intent);
                                     finish();
+                                }
+                                else
+                                {
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            Toast.makeText(getApplicationContext(),
+                                                    "登記失敗，請檢查網路連線並確定所有輸入是否正確",Toast.LENGTH_LONG).show();
+                                            Log.e("HTTP","fail text");
+                                        }
+                                    });
                                 }
 
                             }
