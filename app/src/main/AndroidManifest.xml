@@ -44,6 +44,7 @@
 
         <activity
             android:name=".FirstActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
 
         <receiver
@@ -89,6 +90,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:theme="@android:style/Theme.Black.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

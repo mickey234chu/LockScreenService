@@ -140,7 +140,6 @@ public class MainActivity extends ComponentActivity {
                 } else {
                     //拿到所有需要申請的權限，就開始背景執行service
                     startForegroundService(new Intent(this, ServerService.class));
-                    //Log.e("start service","Test success");
                     //建立展示data View
                     String userDeviceName = Settings.Global.getString(getContentResolver(), Settings.Global.DEVICE_NAME);
                     if(userDeviceName == null)
@@ -166,14 +165,13 @@ public class MainActivity extends ComponentActivity {
                     }
 
                     publicIP.setText("Public IP:"+sharedPreferences.getString("pubIP","抓取中"));
-                    //finish();
+
                 }
             } else {
                 //要求打開懸浮窗權限
                 Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
-                // ActivityCompat.requestPermissions(MainActivity.this, new String[]{"Settings.ACTION_MANAGE_OVERLAY_PERMISSION"},10);
                 startActivity(intent);
-                // finish();
+
             }
 
         }

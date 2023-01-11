@@ -3,6 +3,7 @@ package com.example.bootservice;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -10,6 +11,8 @@ import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -37,7 +40,7 @@ import java.util.Calendar;
 public class FirstActivity extends AppCompatActivity {
 
     TextView textView;
-    EditText et,et2;
+    EditText et;
     Spinner URL_Spinner;
     Button btnSend;
     String SN,domain;
@@ -53,6 +56,7 @@ public class FirstActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_first);
+
        // getSupportActionBar().setBackgroundDrawable(new ColorDrawable(ContextCompat.getColor(FirstActivity.this, R.color.light_blue_400)));
         //getSupportActionBar().setDisplayShowTitleEnabled(false);
         Window window = FirstActivity.this.getWindow();
@@ -62,7 +66,12 @@ public class FirstActivity extends AppCompatActivity {
 
         textView = findViewById(R.id.textView);
         et = findViewById(R.id.et);
+
+        //Spinner text
         URL_Spinner = findViewById(R.id.URL_Spinner);
+        //Spinner value(URL)
+        String[] link = getResources().getStringArray(R.array.URL_list_value);
+
         ArrayAdapter<CharSequence> adapter =
                 ArrayAdapter.createFromResource(this,    //對應的Context
                         R.array.URL_list,                             //資料選項內容
@@ -70,9 +79,6 @@ public class FirstActivity extends AppCompatActivity {
 
         adapter.setDropDownViewResource(R.layout.myspinner_background);
         URL_Spinner.setAdapter(adapter);
-
-
-
         btnSend = findViewById(R.id.btnSend);
 
 
@@ -90,15 +96,33 @@ public class FirstActivity extends AppCompatActivity {
                     {
                         et.setHint("SN碼");
                     }
+                    InputMethodManager imm =  (InputMethodManager)FirstActivity.this.getSystemService(Context.INPUT_METHOD_SERVICE);
+                    if(imm != null) {
+                        imm.hideSoftInputFromWindow(FirstActivity.this.getWindow().getDecorView().getWindowToken(), 0);
+                    }
                 }
             }
         });
 
+        URL_Spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                et.clearFocus();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
         btnSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 SN = et.getText().toString().trim();
-                domain = String.valueOf(URL_Spinner.getSelectedItem());
+                et.clearFocus();
+                //根據選擇提取對應的URL
+                domain = link[URL_Spinner.getSelectedItemPosition()];
+                Log.d("HTTP", domain);
                 StringBuilder response = new StringBuilder();
 
                 try {
@@ -110,8 +134,9 @@ public class FirstActivity extends AppCompatActivity {
                     }
                     else
                     {
-                        //real server we used(debug)
-                        url = new URL("http://imoeedge20220914134800.azurewebsites.net/api/UnitInfro");
+                        //real server we used
+                        //抓分區資訊輸入當連接link
+                        url = new URL(domain);
 
                     }
                 } catch (MalformedURLException e) {
@@ -119,7 +144,7 @@ public class FirstActivity extends AppCompatActivity {
                 }
 
                 //輸入欄位判斷
-                if (!SN.isEmpty() && !domain.equals("請選擇分區資訊")) {
+                if (!SN.isEmpty() && !domain.equals("0")) {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
@@ -243,7 +268,7 @@ public class FirstActivity extends AppCompatActivity {
                     {
                         errormessage += "SN碼\n";
                     }
-                    if(domain.equals("請選擇分區資訊"))
+                    if(domain.equals("0"))
                     {
                         errormessage += "分區資訊\n";
                     }

@@ -14,6 +14,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.graphics.Insets;
 import android.graphics.PixelFormat;
 import android.os.Build;
@@ -427,6 +428,8 @@ public class ServerService<Myboolean> extends Service {
                 PixelFormat.TRANSLUCENT
         );
 
+        //force portrait
+        floatWindowLayoutParam.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
         // The Gravity of the Floating Window is set.
         // The Window will appear in the center of the screen
 
@@ -788,7 +791,7 @@ public class ServerService<Myboolean> extends Service {
             }
 
 
-            closeReceiveConnect();
+            //closeReceiveConnect();
         }
 
         @Override
@@ -828,7 +831,7 @@ public class ServerService<Myboolean> extends Service {
 
     }
     //心跳包
-    private  static  final long HEART_BEAT_RATE = 2*1000;
+    private  static  final long HEART_BEAT_RATE = 60*1000;
     private final Handler mHandler = new Handler();
     //定時檢查鎖定
     private final Runnable LockFlagRunnable = new Runnable() {
@@ -899,6 +902,7 @@ public class ServerService<Myboolean> extends Service {
             if(changesocket)
             {
                 closeReceiveConnect();
+                initwebSocket();
             }
             mHandler.postDelayed(this,2*1000);
         }
@@ -916,8 +920,8 @@ public class ServerService<Myboolean> extends Service {
                 }
                 else if (websocket.isOpen())
                 {
-                    //websocket.send(ID +"still alive");
-                    Log.e("websocket","still alive");
+                    websocket.send(" ");
+                    //Log.e("websocket","still alive");
                 }
             }
             else
